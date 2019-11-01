@@ -5,14 +5,13 @@ box Logic LOGIC_COLOR_T1
 participant ":LogicManager" as LogicManager LOGIC_COLOR
 participant ":iFridgeParser" as iFridgeParser LOGIC_COLOR
 participant ":ShoppingListParser" as ShoppingListParser LOGIC_COLOR
-participant ":TemplateItemParser" as TemplateItemParser LOGIC_COLOR
-participant ":EditTemplateItemCommandParser" as EditTemplateItemCommandParser LOGIC_COLOR
-participant "m:MergeShoppingCommand" as EditTemplateItemCommand LOGIC_COLOR
+participant "m:MergeShoppingCommand" as MergeShoppingCommand LOGIC_COLOR
 participant ":CommandResult" as CommandResult LOGIC_COLOR
 end box
 
 box Model MODEL_COLOR_T1
 participant ":Model" as Model MODEL_COLOR
+participant "gl:GroceryList" as GroceryList MODEL_COLOR
 end box
 
 [-> LogicManager : execute(args1)
@@ -31,44 +30,13 @@ deactivate ShoppingListParser
 iFridgeParser -> ShoppingListParser : parseCommand(args2)
 activate ShoppingListParser
 
-create TemplateItemParser
-ShoppingListParser -> TemplateItemParser
-activate TemplateItemParser
 
-TemplateItemParser --> ShoppingListParser
-deactivate TemplateItemParser
+create MergeShoppingCommand
+ShoppingListParser -> MergeShoppingCommand
+activate MergeShoppingCommand
 
-ShoppingListParser -> TemplateItemParser : parse(args3)
-activate TemplateItemParser
-
-create EditTemplateItemCommandParser
-TemplateItemParser -> EditTemplateItemCommandParser
-activate EditTemplateItemCommandParser
-
-EditTemplateItemCommandParser --> TemplateItemParser
-deactivate EditTemplateItemCommandParser
-
-TemplateItemParser -> EditTemplateItemCommandParser : parse(args4)
-activate EditTemplateItemCommandParser
-
-create EditTemplateItemCommand
-EditTemplateItemCommandParser -> EditTemplateItemCommand
-activate EditTemplateItemCommand
-
-EditTemplateItemCommand --> EditTemplateItemCommandParser : m
-deactivate EditTemplateItemCommand
-
-EditTemplateItemCommandParser --> TemplateItemParser : m
-deactivate EditTemplateItemCommandParser
-'Hidden arrow to position the destroy marker below the end of the activation bar.
-EditTemplateItemCommandParser -[hidden]-> TemplateItemParser
-destroy EditTemplateItemCommandParser
-
-TemplateItemParser --> ShoppingListParser : m
-deactivate TemplateItemParser
-'Hidden arrow to position the destroy marker below the end of the activation bar.
-TemplateItemParser -[hidden]-> ShoppingListParser
-destroy TemplateItemParser
+MergeShoppingCommand --> ShoppingListParser : m
+deactivate MergeShoppingCommand
 
 ShoppingListParser --> iFridgeParser : m
 deactivate ShoppingListParser
@@ -79,32 +47,46 @@ destroy ShoppingListParser
 iFridgeParser --> LogicManager : m
 deactivate iFridgeParser
 
-LogicManager -> EditTemplateItemCommand : execute()
-activate EditTemplateItemCommand
+LogicManager -> MergeShoppingCommand : execute()
+activate MergeShoppingCommand
 
-ref over EditTemplateItemCommand, Model : Retrieve and edit specified template, template items and update templateList
-
-EditTemplateItemCommand -> Model: setTemplate(templateToEdit, EditedTemplate)
+MergeShoppingCommand -> Model : getFilteredBoughtItemList()
 activate Model
 
-Model --> EditTemplateItemCommand
+Model --> MergeShoppingCommand : lastShownBoughtList
 deactivate Model
 
-EditTemplateItemCommand -> Model: setShownTemplate(editedTemplate)
+
+loop for each boughtItem of lastShownBoughtList
+
+    ref over MergeShoppingCommand, Model : modify GroceryList according to boughtItem
+    ref over MergeShoppingCommand, Model : modify ShoppingList according to boughtItem
+
+end
+
+create GroceryList
+MergeShoppingCommand -> GroceryList : GroceryList()
+activate GroceryList
+GroceryList --> MergeShoppingCommand : gl
+deactivate GroceryList
+
+MergeShoppingCommand -> Model: setBoughtList(gl)
 activate Model
 
-Model --> EditTemplateItemCommand
+Model --> MergeShoppingCommand
 deactivate Model
+
+ref over MergeShoppingCommand, Model : sortShoppingList
 
 create CommandResult
-EditTemplateItemCommand -> CommandResult
+MergeShoppingCommand -> CommandResult
 activate CommandResult
 
-CommandResult --> EditTemplateItemCommand
+CommandResult --> MergeShoppingCommand
 deactivate CommandResult
 
-EditTemplateItemCommand --> LogicManager : result
-deactivate EditTemplateItemCommand
+MergeShoppingCommand --> LogicManager : result
+deactivate MergeShoppingCommand
 
 [<--LogicManager
 deactivate LogicManager
